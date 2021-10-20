@@ -13,19 +13,37 @@ defmodule SweaterWeather do
 
   """
   def main(args \\ []) do
-    # CLI function to parse arguments and send output to stdout
-    if length(args) <= 1 do
-      IO.puts(
-        "Please provide city, state, and api key with --city={city} --state={state} --api-key={key}"
-      )
+    # CLI wrapper to parse arguments and send output to stdout.
+    options = parse_args(args)
 
-      # Todo: This can be an interactive prompt
+    with true <- options[:help] do
+      IO.puts("Help text")
       Process.exit(self(), :normal)
     end
 
-    options = parse_args(args)
-    # Todo: handle errors
-    get_advice(options[:city], options[:state], options[:"api-key"])
+    # Handle missed arguments
+    options =
+      for arg <- [:city, :state, :api_key] do
+        case options[arg] do
+          nil -> request_arg(arg)
+          _ -> {arg, options[arg]}
+        end
+      end
+
+    get_advice(options[:city], options[:state], options[:api_key])
+  end
+
+  def request_arg(arg) do
+    IO.write("Enter #{Atom.to_string(arg)}: ")
+
+    case IO.read(:stdio, :line) do
+      {:error, reason} ->
+        IO.puts("Error: #{reason}")
+        Process.exit(self(), :normal)
+
+      data ->
+        {arg, String.trim(data, "\n")}
+    end
   end
 
   def get_advice(city, state, api_key) do
@@ -52,7 +70,7 @@ defmodule SweaterWeather do
     {:ok, {{_, 200, 'OK'}, _headers, weather_json}} =
       :httpc.request(:get, {query_url, []}, [], body_format: :string)
 
-    {:ok, weather} = JSON.decode(weather_json)
+    JSON.decode(weather_json)
   end
 
   def get_state_code(state) do
@@ -74,7 +92,9 @@ defmodule SweaterWeather do
 
   defp parse_args(args) do
     {options, _, _} =
-      OptionParser.parse(args, switches: [city: :string, state: :string, "api-key": :string])
+      OptionParser.parse(args,
+        switches: [city: :string, state: :string, "api-key": :string]
+      )
 
     options
   end
