@@ -47,10 +47,12 @@ defmodule SweaterWeather do
     Application.ensure_all_started(:inets)
 
     query_url =
-      "api.openweathermap.org/data/2.5/forecast?q=#{city},#{state_code}&appid=#{api_key}"
+      'http://api.openweathermap.org/data/2.5/forecast?q=#{city},#{state_code}&appid=#{api_key}'
 
-    {:ok, resp} = :httpc.request(:get, {query_url})
-    resp
+    {:ok, {{_, 200, 'OK'}, _headers, weather_json}} =
+      :httpc.request(:get, {query_url, []}, [], body_format: :string)
+
+    {:ok, weather} = JSON.decode(weather_json)
   end
 
   def get_state_code(state) do
