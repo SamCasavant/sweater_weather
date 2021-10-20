@@ -1,0 +1,46 @@
+{
+   "available_recommendations": [
+      {
+         "name": "Sunglasses",
+         "waterproof": false,
+         "min_temp": 75,
+         "max_temp": 100
+      },
+      {
+         "name": "Rain Jacket",
+         "waterproof": true,
+         "min_temp": 62,
+         "max_temp": 80
+      },
+      {
+         "name": "Sweater",
+         "waterproof": false,
+         "min_temp": 50,
+         "max_temp": 68
+      },
+      {
+         "name": "Light Coat",
+         "waterproof": true,
+         "min_temp": 35,
+         "max_temp": 55
+      },
+      {
+         "name": "Comfortable Shoes",
+         "waterproof": false,
+         "min_temp": 25,
+         "max_temp": 90
+      },
+      {
+         "name": "Heavy Coat",
+         "waterproof": true,
+         "min_temp": 0,
+         "max_temp": 40
+      },
+      {
+         "name": "Snow Boots",
+         "waterproof": true,
+         "min_temp": 0,
+         "max_temp": 35
+      }
+   ]
+}
