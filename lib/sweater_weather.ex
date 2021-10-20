@@ -34,15 +34,26 @@ defmodule SweaterWeather do
     # Todo: implement get_state_code
     {:ok, state_code} = get_state_code(state)
     {:ok, weather} = get_weather(city, state_code, api_key)
+    # advise(config_map, weather)
   end
 
   def get_weather(city, state_code, api_key) do
     Application.ensure_all_started(:inets)
 
     query_url =
-      "api.openweathermap.org/data/2.5/forecast?q=#{city},#{state_code}&appid=#{api_key}"
+      "api.openweathermap.org/data/2.5/forecast?q=#{city},US-#{state_code}&appid=#{api_key}"
 
     {:ok, resp} = :httpc.request(:get, {query_url})
+    resp
+  end
+
+  defp get_state_code(state) when length(state) == 2 do
+    state
+  end
+
+  defp get_state_code(state) do
+    # todo handle errors
+    {:ok, state_codes} = File.read("data/state_code_map.json")
   end
 
   defp parse_args(args) do
