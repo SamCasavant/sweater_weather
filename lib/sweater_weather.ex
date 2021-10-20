@@ -1,19 +1,30 @@
 defmodule SweaterWeather do
   @moduledoc """
-  Documentation for `SweaterWeather`.
+  Provides a get_advice function to recommend attire choices based on today's weather forecast.
+  Also provides an executable interface for interacting with the get_advice function.
   """
 
   @doc """
-  Hello world.
+  escript executable function for interfacing with this module.
+
+  ## Arguments
+    Arguments can be passed in with flags or during program execution.
+    - city: full name of user's city
+    - state: full name of user's state or postal abbreviation
+    - api-key: API key for OpenWeatherMaps.org
 
   ## Examples
 
-      iex> SweaterWeather.hello()
-      :world
+      [user@computer]> ./sweater_weather --city=columbus --state=ohio --api-key=1234567890
+
+      [user@computer]> ./sweater_weather
+          Enter city: Columbus
+          Enter state: OH
+          Enter api_key: 1234567890
+
 
   """
   def main(args \\ []) do
-    # CLI wrapper to parse arguments and send output to stdout.
     options = parse_args(args)
 
     with true <- options[:help] do
@@ -46,6 +57,16 @@ defmodule SweaterWeather do
     end
   end
 
+  @doc """
+    ## Parameters
+      - city: full name of user's city
+      - state: full name of user's state or postal abbreviation
+      - api-key: API key for OpenWeatherMaps.org
+
+    ## Examples
+      iex> SweaterWeather.get_advice("columbus", "ohio", "1234567890")
+
+  """
   def get_advice(city, state, api_key) do
     # Todo: Handle errors
     {:ok, config} = File.read("config.json")
@@ -73,6 +94,14 @@ defmodule SweaterWeather do
     JSON.decode(weather_json)
   end
 
+  @doc """
+  Takes a US state, district, or outlying area by name and returns an ISO 3166-2 format code.
+  ## Examples
+    iex> SweaterWeather.get_state_code("ohio")
+    "US-OH"
+    iex> SweaterWeather.get_state_code("Puerto Rico")
+    "US-PR"
+  """
   def get_state_code(state) do
     # todo handle errors
     {:ok, state_codes} = File.read("data/state_code_map.json")
