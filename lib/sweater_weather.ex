@@ -24,15 +24,21 @@ defmodule SweaterWeather do
     end
 
     options = parse_args(args)
-    Enum.each(options, fn option -> IO.puts(elem(option, 1)) end)
+    # Todo: handle errors
+    get_advice(options[:city], options[:state], options[:"api-key"])
   end
 
   def get_advice(city, state, api_key) do
     # Todo: Handle errors
     {:ok, config} = File.read("config.json")
-    {:ok, config_map} = JSON.parse(config)
-    # Todo: implement get_state_code
-    {:ok, state_code} = get_state_code(state)
+    {:ok, config_map} = JSON.decode(config)
+
+    {:ok, state_code} =
+      case String.length(state) do
+        2 -> {:ok, "US-" <> state}
+        x when x > 3 -> get_state_code(state)
+      end
+
     {:ok, weather} = get_weather(city, state_code, api_key)
     # advise(config_map, weather)
   end
@@ -41,19 +47,27 @@ defmodule SweaterWeather do
     Application.ensure_all_started(:inets)
 
     query_url =
-      "api.openweathermap.org/data/2.5/forecast?q=#{city},US-#{state_code}&appid=#{api_key}"
+      "api.openweathermap.org/data/2.5/forecast?q=#{city},#{state_code}&appid=#{api_key}"
 
     {:ok, resp} = :httpc.request(:get, {query_url})
     resp
   end
 
-  defp get_state_code(state) when length(state) == 2 do
-    state
-  end
-
-  defp get_state_code(state) do
+  def get_state_code(state) do
     # todo handle errors
     {:ok, state_codes} = File.read("data/state_code_map.json")
+    {:ok, state_code_map} = JSON.decode(state_codes)
+
+    state_map_match =
+      Enum.find(state_code_map, fn pair ->
+        name = String.downcase(pair["name"])
+        match?(^name, String.downcase(state))
+      end)
+
+    case state_map_match do
+      nil -> {:error, "State not found: #{state}"}
+      %{"abbreviation" => code, "name" => _} -> {:ok, "US-" <> code}
+    end
   end
 
   defp parse_args(args) do
