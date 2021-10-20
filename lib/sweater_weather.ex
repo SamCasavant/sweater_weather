@@ -33,7 +33,7 @@ defmodule SweaterWeather do
     get_advice(options[:city], options[:state], options[:api_key])
   end
 
-  def request_arg(arg) do
+  defp request_arg(arg) do
     IO.write("Enter #{Atom.to_string(arg)}: ")
 
     case IO.read(:stdio, :line) do
