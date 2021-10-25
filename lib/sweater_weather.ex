@@ -10,7 +10,7 @@ defmodule SweaterWeather do
   ## Arguments
     Arguments can be passed in with flags or during program execution.
     - city: full name of user's city
-    - state: full name of user's state or postal abbreviation
+    - state: user's state formatted as "ohio", "OH", or "US-OH"
     - api-key: API key for OpenWeatherMaps.org
 
   ## Examples
@@ -72,10 +72,10 @@ defmodule SweaterWeather do
     {:ok, config} = File.read("config.json")
     {:ok, config_map} = JSON.decode(config)
 
-    {:ok, state_code} =
-      case String.length(state) do
-        2 -> {:ok, "US-" <> state}
-        x when x > 3 -> get_state_code(state)
+    state_code =
+      case get_state_code(state) do
+        {:ok, code} -> code
+        {:error, reason} -> raise reason
       end
 
     {:ok, weather} = get_weather(city, state_code, api_key)
@@ -97,21 +97,39 @@ defmodule SweaterWeather do
   @doc """
   Takes a US state, district, or outlying area by name and returns an ISO 3166-2 format code.
   ## Examples
-    iex> SweaterWeather.get_state_code("ohio")
-    "US-OH"
-    iex> SweaterWeather.get_state_code("Puerto Rico")
-    "US-PR"
+    iex> SweaterWeather.get_state_code("puerto Rico")
+    {:ok, "US-PR"}
+    iex> SweaterWeather.get_state_code("oh")
+    {:ok, "US-OH"}
+    iex> SweaterWeather.get_state_code("us-nv")
+    {:ok, "US-NV"}
   """
   def get_state_code(state) do
-    # todo handle errors
+    # Handle us-xy format and capitalize
+    state =
+      String.upcase(state)
+      |> String.split(["US-", "US"])
+      |> Enum.at(-1)
+
     {:ok, state_codes} = File.read("data/state_code_map.json")
     {:ok, state_code_map} = JSON.decode(state_codes)
 
     state_map_match =
-      Enum.find(state_code_map, fn pair ->
-        name = String.downcase(pair["name"])
-        match?(^name, String.downcase(state))
-      end)
+      case String.length(state) do
+        2 ->
+          # Assume input is abbreviation and validate
+          state_map_match =
+            Enum.find(state_code_map, fn pair ->
+              code = pair["abbreviation"]
+              match?(^code, state)
+            end)
+
+        _ ->
+          Enum.find(state_code_map, fn pair ->
+            name = String.upcase(pair["name"])
+            match?(^name, state)
+          end)
+      end
 
     case state_map_match do
       nil -> {:error, "State not found: #{state}"}
