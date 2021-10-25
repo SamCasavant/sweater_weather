@@ -1,9 +1,41 @@
 defmodule SweaterWeather do
   @moduledoc """
   Provides a get_advice function to recommend attire choices based on today's weather forecast.
-  Also provides an executable interface for interacting with the get_advice function.
   """
 
+  @doc """
+    ## Parameters
+      - city: full name of user's city
+      - state: ISO 3166-2 State Code
+      - api-key: API key for OpenWeatherMaps.org
+
+    ## Examples
+      iex> SweaterWeather.get_advice("columbus", "ohio", "1234567890")
+
+  """
+  def get_advice(city, state_code, api_key) do
+    # Todo: Handle errors
+    {:ok, config} = File.read("config.json")
+    {:ok, config_map} = JSON.decode(config)
+
+    {:ok, weather} = get_weather(city, state_code, api_key)
+    # advise(config_map, weather)
+  end
+
+  def get_weather(city, state_code, api_key) do
+    Application.ensure_all_started(:inets)
+
+    query_url =
+      'http://api.openweathermap.org/data/2.5/forecast?q=#{city},#{state_code}&appid=#{api_key}'
+
+    {:ok, {{_, 200, 'OK'}, _headers, weather_json}} =
+      :httpc.request(:get, {query_url, []}, [], body_format: :string)
+
+    JSON.decode(weather_json)
+  end
+end
+
+defmodule CLI do
   @doc """
   escript executable function for interfacing with this module.
 
@@ -41,7 +73,8 @@ defmodule SweaterWeather do
         end
       end
 
-    get_advice(options[:city], options[:state], options[:api_key])
+    state_code = get_state_code(options[:state])
+    SweaterWeather.get_advice(options[:city], state_code, options[:api_key])
   end
 
   defp request_arg(arg) do
@@ -57,41 +90,13 @@ defmodule SweaterWeather do
     end
   end
 
-  @doc """
-    ## Parameters
-      - city: full name of user's city
-      - state: full name of user's state or postal abbreviation
-      - api-key: API key for OpenWeatherMaps.org
+  defp parse_args(args) do
+    {options, _, _} =
+      OptionParser.parse(args,
+        switches: [city: :string, state: :string, "api-key": :string]
+      )
 
-    ## Examples
-      iex> SweaterWeather.get_advice("columbus", "ohio", "1234567890")
-
-  """
-  def get_advice(city, state, api_key) do
-    # Todo: Handle errors
-    {:ok, config} = File.read("config.json")
-    {:ok, config_map} = JSON.decode(config)
-
-    state_code =
-      case get_state_code(state) do
-        {:ok, code} -> code
-        {:error, reason} -> raise reason
-      end
-
-    {:ok, weather} = get_weather(city, state_code, api_key)
-    # advise(config_map, weather)
-  end
-
-  def get_weather(city, state_code, api_key) do
-    Application.ensure_all_started(:inets)
-
-    query_url =
-      'http://api.openweathermap.org/data/2.5/forecast?q=#{city},#{state_code}&appid=#{api_key}'
-
-    {:ok, {{_, 200, 'OK'}, _headers, weather_json}} =
-      :httpc.request(:get, {query_url, []}, [], body_format: :string)
-
-    JSON.decode(weather_json)
+    options
   end
 
   @doc """
@@ -135,14 +140,5 @@ defmodule SweaterWeather do
       nil -> {:error, "State not found: #{state}"}
       %{"abbreviation" => code, "name" => _} -> {:ok, "US-" <> code}
     end
-  end
-
-  defp parse_args(args) do
-    {options, _, _} =
-      OptionParser.parse(args,
-        switches: [city: :string, state: :string, "api-key": :string]
-      )
-
-    options
   end
 end
