@@ -7,7 +7,7 @@ defmodule SweaterWeather.MixProject do
       version: "0.1.0",
       elixir: "~> 1.12",
       start_permanent: Mix.env() == :prod,
-      escript: [main_module: SweaterWeather],
+      escript: [main_module: CLI],
       deps: deps()
     ]
   end

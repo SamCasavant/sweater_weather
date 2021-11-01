@@ -10,7 +10,7 @@ defmodule SweaterWeather do
       - api-key: API key for OpenWeatherMaps.org
 
     ## Examples
-      iex> SweaterWeather.get_advice("columbus", "ohio", "1234567890")
+      iex> SweaterWeather.get_advice("columbus", "US-OH", :test)
 
   """
   def get_advice(city, state_code, api_key) do
@@ -19,6 +19,7 @@ defmodule SweaterWeather do
     {:ok, config_map} = JSON.decode(config)
 
     {:ok, weather} = get_weather(city, state_code, api_key)
+
     # advise(config_map, weather)
   end
 
@@ -28,10 +29,17 @@ defmodule SweaterWeather do
     query_url =
       'http://api.openweathermap.org/data/2.5/forecast?q=#{city},#{state_code}&appid=#{api_key}'
 
-    {:ok, {{_, 200, 'OK'}, _headers, weather_json}} =
-      :httpc.request(:get, {query_url, []}, [], body_format: :string)
+    case api_key do
+      :test ->
+        IO.puts(query_url)
+        {:ok, JSON.decode(File.read!('sample_data/sample_weather_query.json'))}
 
-    JSON.decode(weather_json)
+      _ ->
+        {:ok, {{_, 200, 'OK'}, _headers, weather_json}} =
+          :httpc.request(:get, {query_url, []}, [], body_format: :string)
+
+        {:ok, JSON.decode(weather_json)}
+    end
   end
 end
 
@@ -102,11 +110,13 @@ defmodule CLI do
   @doc """
   Takes a US state, district, or outlying area by name and returns an ISO 3166-2 format code.
   ## Examples
-    iex> SweaterWeather.get_state_code("puerto Rico")
+    iex> CLI.get_state_code("puerto Rico")
     {:ok, "US-PR"}
-    iex> SweaterWeather.get_state_code("oh")
+
+    iex> CLI.get_state_code("oh")
     {:ok, "US-OH"}
-    iex> SweaterWeather.get_state_code("us-nv")
+
+    iex> CLI.get_state_code("us-nv")
     {:ok, "US-NV"}
   """
   def get_state_code(state) do
