@@ -11,7 +11,7 @@ defmodule SweaterWeather do
 
     ## Examples
       iex> SweaterWeather.get_advice("columbus", "US-OH", :test)
-
+      TODO
   """
   def get_advice(city, state_code, api_key) do
     # Todo: Handle errors
@@ -41,6 +41,26 @@ defmodule SweaterWeather do
 
         {:ok, JSON.decode(weather_json)}
     end
+  end
+
+  @doc """
+  Takes weather JSON data and returns high, low, and weather conditions across a time span.
+
+  Parameters:
+    weather_json: Decoded json response from OpenWeatherMaps.org
+    date: 0 = today, 1 = tomorrow .. 4 = four days from now
+    start_time, end_time: The endpoints of a range in local, military time hours to use for weather measurement.
+                          start_time is inclusive, end_time is exclusive
+
+  Issues:
+    This will not account for times outside of the data on a given date, ie. if the date provided is today and the start_time has already passed,
+    the resulting issues are considered out of scope for this prototype and aren't handled.
+  Examples:
+
+  iex> output = File.read!('sample_data/sample_weather_query.json') |> JSON.decode() |> parse_weather(1, 9, 17)
+    {:ok, high, low, [conditions]}
+  """
+  def parse_weather(weather_json, date \\ 1, start_time \\ 9, end_time \\ 17) do
   end
 end
 
