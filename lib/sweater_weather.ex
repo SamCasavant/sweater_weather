@@ -25,9 +25,10 @@ defmodule SweaterWeather do
 
   def get_weather(city, state_code, api_key) do
     Application.ensure_all_started(:inets)
+    city_url = String.split(city, " ") |> Enum.join("%20")
 
     query_url =
-      'http://api.openweathermap.org/data/2.5/forecast?q=#{city},#{state_code}&appid=#{api_key}'
+      'http://api.openweathermap.org/data/2.5/forecast?q=#{city_url},#{state_code}&appid=#{api_key}'
 
     case api_key do
       :test ->
