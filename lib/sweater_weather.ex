@@ -2,6 +2,34 @@ defmodule SweaterWeather do
   @moduledoc """
   Provides a get_advice function to recommend attire choices based on today's weather forecast.
   """
+  @doc """
+  Takes a decoded json response from OpenWeatherMap.org, returns data trimmed to specified time range.
+
+  Parameters:
+    date: 0 = today, 1 = tomorrow .. 4 = four days from now
+    start_time, end_time: The endpoints of a range in local, military time hours. start_time is inclusive, end_time is exclusive.
+  Issues:
+    This will not account for times outside of the data on a given date, ie. if the date provided is today and the start_time has already passed,
+    the resulting issues are considered out of scope for this prototype and aren't handled.
+  """
+
+  def restrict_weather_range(weather_map, date \\ 1, start_time \\ 9, end_time \\ 17) do
+    current_datetime_utc = DateTime.utc_now()
+    {:ok, city} = Map.fetch(weather_map, "city")
+    {:ok, timezoneshift} = Map.fetch(city, "timezone")
+    current_datetime_local = DateTime.add(current_datetime_utc, timezoneshift, :second)
+    target_datetime_local = DateTime.add(current_datetime_local, date * 86400, :second)
+
+    target_date = DateTime.to_date(target_datetime_local)
+
+    {:ok, start_time} = Time.new(start_time, 0, 0)
+    {:ok, end_time} = Time.new(end_time, 0, 0)
+
+    {:ok, start_datetime} = NaiveDateTime.new(target_date, start_time)
+    {:ok, end_datetime} = NaiveDateTime.new(target_date, end_time)
+    IO.puts(start_datetime)
+    IO.puts(end_datetime)
+  end
 
   @doc """
     ## Parameters
@@ -18,7 +46,8 @@ defmodule SweaterWeather do
     {:ok, config} = File.read("config.json")
     {:ok, config_map} = JSON.decode(config)
 
-    {:ok, weather} = get_weather(city, state_code, api_key)
+    {:ok, five_day_forecast} = get_weather(city, state_code, api_key)
+    weather = restrict_weather_range(five_day_forecast, 1, 9, 17)
 
     # advise(config_map, weather)
   end
@@ -53,24 +82,11 @@ defmodule SweaterWeather do
     {:ok, high, low, [conditions]}
   """
   def parse_weather(weather_map) do
+    nil
   end
+end
 
-  @doc """
-  Takes a decoded json response from OpenWeatherMap.org, returns data trimmed to specified time range.
-
-  Parameters:
-    date: 0 = today, 1 = tomorrow .. 4 = four days from now
-    start_time, end_time: The endpoints of a range in local, military time hours. start_time is inclusive, end_time is exclusive.
-  Issues:
-    This will not account for times outside of the data on a given date, ie. if the date provided is today and the start_time has already passed,
-    the resulting issues are considered out of scope for this prototype and aren't handled."""
-  def restrict_weather_range(weather_map, date \\ 1, start_time \\ 9, end_time \\ 17) do
-    current_date_utc = DateTime.utc_now
-    current_date_local = DateTime.shift_zone!(current_date_utc, local_time_zone)
-  end
-  end
-
-  defmodule CLI do
+defmodule CLI do
   @doc """
   escript executable function for interfacing with this module.
 
@@ -160,11 +176,10 @@ defmodule SweaterWeather do
       case String.length(state) do
         2 ->
           # Assume input is abbreviation and validate
-          state_map_match =
-            Enum.find(state_code_map, fn pair ->
-              code = pair["abbreviation"]
-              match?(^code, state)
-            end)
+          Enum.find(state_code_map, fn pair ->
+            code = pair["abbreviation"]
+            match?(^code, state)
+          end)
 
         _ ->
           Enum.find(state_code_map, fn pair ->
