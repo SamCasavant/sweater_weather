@@ -50,7 +50,7 @@ defmodule SweaterWeather do
       - api-key: API key for OpenWeatherMap.org
 
     ## Examples
-      iex> SweaterWeather.get_advice("columbus", "US-OH", :test)
+      iex> SweaterWeather.get_advice("columbus", "OH,US", :test)
       TODO
   """
   def get_advice(city, state_code, api_key) do
@@ -91,7 +91,7 @@ defmodule SweaterWeather do
   Examples:
 
   iex> output = File.read!('sample_data/sample_weather_query.json') |> JSON.decode() |> restrict_weather_range() |> parse_weather()
-  {:ok, high, low, [conditions]}
+  {:ok, 10, 20, ["clouds"]]}
   """
   def parse_weather(weather_list) do
     # Note: temp_max = temp_min = temp for the 5 day forecast queries being used. Revise to consider all three if query type changes.
@@ -200,16 +200,16 @@ defmodule CLI do
   Takes a US state, district, or outlying area by name and returns an ISO 3166-2 format code.
   ## Examples
     iex> CLI.get_state_code("puerto Rico")
-    {:ok, "US-PR"}
+    {:ok, "PR,US"}
 
     iex> CLI.get_state_code("oh")
-    {:ok, "US-OH"}
+    {:ok, "OH,US"}
 
     iex> CLI.get_state_code("us-nv")
-    {:ok, "US-NV"}
+    {:ok, "NV,US"}
   """
   def get_state_code(state) do
-    # Handle us-xy format and capitalize
+    # Handle us-xy / usxy format and capitalize
     state =
       String.upcase(state)
       |> String.split(["US-", "US"])
@@ -236,7 +236,7 @@ defmodule CLI do
 
     case state_map_match do
       nil -> {:error, "State not found: #{state}"}
-      %{"abbreviation" => code, "name" => _} -> {:ok, "US-" <> code}
+      %{"abbreviation" => code, "name" => _} -> {:ok, code <> ",US"}
     end
   end
 end
