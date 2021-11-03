@@ -14,21 +14,35 @@ defmodule SweaterWeather do
   """
 
   def restrict_weather_range(weather_map, date \\ 1, start_time \\ 9, end_time \\ 17) do
+    # TODO: The amount of code here is not proportional to the work done. Refactor
     current_datetime_utc = DateTime.utc_now()
     {:ok, city} = Map.fetch(weather_map, "city")
     {:ok, timezoneshift} = Map.fetch(city, "timezone")
     current_datetime_local = DateTime.add(current_datetime_utc, timezoneshift, :second)
-    target_datetime_local = DateTime.add(current_datetime_local, date * 86400, :second)
 
+    target_datetime_local = DateTime.add(current_datetime_local, date * 86400, :second)
     target_date = DateTime.to_date(target_datetime_local)
 
     {:ok, start_time} = Time.new(start_time, 0, 0)
     {:ok, end_time} = Time.new(end_time, 0, 0)
 
-    {:ok, start_datetime} = NaiveDateTime.new(target_date, start_time)
-    {:ok, end_datetime} = NaiveDateTime.new(target_date, end_time)
-    IO.puts(start_datetime)
-    IO.puts(end_datetime)
+    {:ok, start_datetime} = DateTime.new(target_date, start_time)
+    {:ok, end_datetime} = DateTime.new(target_date, end_time)
+
+    start_unix = DateTime.to_unix(start_datetime)
+    end_unix = DateTime.to_unix(end_datetime)
+
+    {:ok, weather_list} = Map.fetch(weather_map, "list")
+
+    Enum.reduce_while(weather_list, [], fn map, acc ->
+      IO.puts("Start: #{start_unix}, dt: #{map["dt"]}, end: #{end_unix})")
+
+      case map["dt"] do
+        time when time < start_unix -> {:cont, acc}
+        time when time >= end_unix -> {:halt, acc}
+        _time -> {:cont, [map | acc]}
+      end
+    end)
   end
 
   @doc """
@@ -48,7 +62,7 @@ defmodule SweaterWeather do
 
     {:ok, five_day_forecast} = get_weather(city, state_code, api_key)
     weather = restrict_weather_range(five_day_forecast, 1, 9, 17)
-
+    parse_weather(weather)
     # advise(config_map, weather)
   end
 
@@ -73,16 +87,30 @@ defmodule SweaterWeather do
   end
 
   @doc """
-  Takes weather decoded JSON data and returns high, low, and weather conditions.
+  Takes decoded JSON weather data and returns high, low, and weather conditions.
 
 
   Examples:
 
   iex> output = File.read!('sample_data/sample_weather_query.json') |> JSON.decode() |> restrict_weather_range() |> parse_weather()
-    {:ok, high, low, [conditions]}
+  {:ok, high, low, [conditions]}
   """
-  def parse_weather(weather_map) do
-    nil
+  def parse_weather(weather_list) do
+    # Note: temp_max = temp_min = temp for the 5 day forecast queries being used. Revise to consider all three if query type changes.
+    temps =
+      Enum.reduce(weather_list, [], fn forecast, acc -> [forecast["main"]["temp"] | acc] end)
+
+    high = Enum.max(temps)
+    low = Enum.min(temps)
+    # TODO: forecast["weather"] is a list. This is probably for a good reason, but I haven't
+    # encountered an instance with multiple elements, so I'm just taking the first element for now.
+    # Next step in addressing this is catching when we have multiple "weather" elements.
+    conditions =
+      Enum.reduce(weather_list, [], fn forecast, acc ->
+        [List.first(forecast["weather"], 0)["main"] | acc]
+      end)
+
+    {high, low, conditions}
   end
 end
 
@@ -124,7 +152,7 @@ defmodule CLI do
         end
       end
 
-    state_code = get_state_code(options[:state])
+    {:ok, state_code} = get_state_code(options[:state])
     SweaterWeather.get_advice(options[:city], state_code, options[:api_key])
   end
 
