@@ -35,8 +35,6 @@ defmodule SweaterWeather do
     {:ok, weather_list} = Map.fetch(weather_map, "list")
 
     Enum.reduce_while(weather_list, [], fn map, acc ->
-      IO.puts("Start: #{start_unix}, dt: #{map["dt"]}, end: #{end_unix})")
-
       case map["dt"] do
         time when time < start_unix -> {:cont, acc}
         time when time >= end_unix -> {:halt, acc}
@@ -62,8 +60,8 @@ defmodule SweaterWeather do
 
     {:ok, five_day_forecast} = get_weather(city, state_code, api_key)
     weather = restrict_weather_range(five_day_forecast, 1, 9, 17)
-    parse_weather(weather)
-    # advise(config_map, weather)
+    {:ok, high, low, conditions} = parse_weather(weather)
+    advise(config_map, high, low, conditions)
   end
 
   def get_weather(city, state_code, api_key) do
@@ -110,7 +108,27 @@ defmodule SweaterWeather do
         [List.first(forecast["weather"], 0)["main"] | acc]
       end)
 
-    {high, low, conditions}
+    {:ok, high, low, conditions}
+  end
+
+  def advise(config, high, low, conditions) do
+    available_recommendations = config["available_recommendations"]
+    wet = Enum.any?(conditions, fn condition -> condition in ["rain", "snow"] end)
+
+    recommendations =
+      Enum.reduce(available_recommendations, [], fn recommendation, acc ->
+        if recommendation["waterproof"] != wet && recommendation["max_temp"] > low &&
+             recommendation["min_temp"] < high do
+          [recommendation["name"] | acc]
+        else
+          acc
+        end
+      end)
+
+    IO.inspect(high)
+    IO.inspect(low)
+    IO.inspect(conditions)
+    IO.inspect(recommendations)
   end
 end
 
