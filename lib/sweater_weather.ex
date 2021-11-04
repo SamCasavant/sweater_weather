@@ -3,6 +3,7 @@ defmodule SweaterWeather do
   Provides a get_advice function to recommend attire choices based on today's weather forecast.
   """
   @doc """
+  get_advice takes
   ## Parameters
   - city: full name of user's city
   - state: ISO 3166-2 State Code
@@ -24,13 +25,16 @@ defmodule SweaterWeather do
 
     {:ok, full_weather} = get_weather(city, state_code, api_key)
 
-    timezone = Kernel.get_in(full_weather, ["city,", "timezone"])
+    timezone = Kernel.get_in(full_weather, ["city", "timezone"])
     {first_unix, last_unix} = prepare_times(timezone, day, first_hour, last_hour)
 
     {high, low, conditions} = eval_weather(full_weather["list"], first_unix, last_unix)
 
     recommendation_list = advise(config_map, high, low, conditions)
-    {recommendation_list, high, low, first_unix, last_unix}
+
+    # Only the recommendation list needs to be returned, but the other data allows the CLI utility to be more verbose.
+    {recommendation_list, high, low, first_unix, last_unix,
+     get_in(full_weather, ["city", "name"])}
   end
 
   def advise(config, high, low, conditions) do
@@ -47,6 +51,9 @@ defmodule SweaterWeather do
     end)
   end
 
+  @doc """
+  Requests a five-day forecast from OpenWeatherMap.org for given city. Decodes the resulting json data.
+  """
   def get_weather(city, state_code, api_key) do
     Application.ensure_all_started(:inets)
     city_url = String.split(city, " ") |> Enum.join("%20")
@@ -67,6 +74,11 @@ defmodule SweaterWeather do
     end
   end
 
+  @doc """
+  Function to prepare decoded json weather data and parse it for high, low, and weather conditions.
+  iex> output = File.read!('sample_data/sample_weather_query.json') |> JSON.decode!() |> SweaterWeather.eval_weather()
+  {42.58, 35.67, ["Clear", "Clear", "Clear"]}
+  """
   def eval_weather(weather_list, first_unix, last_unix) do
     shortened_list = reduce_timespan(weather_list, first_unix, last_unix)
     parse_weather(shortened_list)
@@ -75,9 +87,7 @@ defmodule SweaterWeather do
   @doc """
   Takes a decoded json response from OpenWeatherMap.org, returns data trimmed to specified time range.
 
-  Parameters:
-    day: 0 = today, 1 = tomorrow .. 4 = four days from now
-    start_time, end_time: The endpoints of a range in local, military time hours. start_time is inclusive, end_time is exclusive.
+
   Issues:
     This will not account for times outside of the data on a given date, ie. if the date provided is today and the start_time has already passed,
     the resulting issues are considered out of scope for this prototype and aren't handled.
@@ -95,9 +105,7 @@ defmodule SweaterWeather do
 
   @doc """
   Takes decoded JSON weather data and returns high, low, and weather conditions.
-  Examples:
-    iex> output = File.read!('sample_data/sample_weather_query.json') |> JSON.decode!() |> SweaterWeather.reduce_timespan() |> SweaterWeather.parse_weather()
-    {42.58, 35.67, ["Clear", "Clear", "Clear"]}
+
   """
   defp parse_weather(weather_list) do
     # Note: temp_max = temp_min = temp for the 5 day forecast queries being used. Revise to consider all three if query type changes.
@@ -183,7 +191,17 @@ defmodule CLI do
       end
 
     {:ok, state_code} = get_state_code(options[:state])
-    SweaterWeather.get_advice(options[:city], state_code, options[:api_key])
+
+    {recommendations, high, low, first_unix, last_unix, cityname} =
+      SweaterWeather.get_advice(options[:city], state_code, options[:api_key])
+
+    IO.puts(
+      "Tomorrow in #{cityname}, expect a high of #{high} and a low of #{low} between 9AM and 5PM."
+    )
+
+    Enum.each(recommendations, fn rec ->
+      IO.puts("sweater_weather thinks you should bring a #{rec}")
+    end)
   end
 
   defp request_arg(arg) do
