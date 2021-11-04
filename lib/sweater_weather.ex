@@ -45,20 +45,32 @@ defmodule SweaterWeather do
         {:ok, config} = File.read("config.json")
         JSON.decode(config)
       rescue
-        e in RuntimeError -> raise("Invalid or missing config.json. Error: #{e}")
+        e in RuntimeError ->
+          reraise("Invalid or missing config.json. Error: #{e}", __STACKTRACE__)
       end
 
     {:ok, full_weather} = get_weather(city, state_code, api_key)
-    # +/-seconds from UTC:
-    local_time = :os.system_time(:second) + Kernel.get_in(full_weather, ["city", "timezone"])
-    first_unix = future_to_unix_time(local_time, day, first_hour)
-    last_unix = future_to_unix_time(local_time, day, last_hour)
-    # forecast data:
-    full_weather_list = full_weather["list"]
-    weather = reduce_timespan(full_weather_list, first_unix, last_unix)
-    {high, low, conditions} = parse_weather(weather)
+
+    timezone = Kernel.get_in(full_weather, ["city,", "timezone"])
+    {first_unix, last_unix} = prepare_times(timezone, day, first_hour, last_hour)
+
+    {high, low, conditions} = eval_weather(full_weather["list"], first_unix, last_unix)
+
     recommendation_list = advise(config_map, high, low, conditions)
     {recommendation_list, high, low, first_unix, last_unix}
+  end
+
+  def eval_weather(weather_list, first_unix, last_unix) do
+    shortened_list = reduce_timespan(weather_list, first_unix, last_unix)
+    parse_weather(shortened_list)
+  end
+
+  def prepare_times(timezone, day, first_hour, last_hour) do
+    # +/-seconds from UTC:
+    local_time = :os.system_time(:second) + timezone
+    first_unix = future_to_unix_time(local_time, day, first_hour)
+    last_unix = future_to_unix_time(local_time, day, last_hour)
+    {first_unix, last_unix}
   end
 
   def get_weather(city, state_code, api_key) do
@@ -179,8 +191,7 @@ defmodule CLI do
 
     case IO.read(:stdio, :line) do
       {:error, reason} ->
-        IO.puts("Error: #{reason}")
-        Process.exit(self(), :normal)
+        raise("Error: #{reason}")
 
       data ->
         {arg, String.trim(data, "\n")}
