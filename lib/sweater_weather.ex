@@ -13,31 +13,23 @@ defmodule SweaterWeather do
     the resulting issues are considered out of scope for this prototype and aren't handled.
   """
 
-  def restrict_weather_range(weather_map, date \\ 1, start_time \\ 9, end_time \\ 17) do
+  def restrict_weather_range(weather_map, day \\ 1, start_time \\ 9, end_time \\ 17) do
     # TODO: The amount of code here is not proportional to the work done. Refactor
-    current_datetime_utc = DateTime.utc_now()
-    {:ok, city} = Map.fetch(weather_map, "city")
-    {:ok, timezoneshift} = Map.fetch(city, "timezone")
-    current_datetime_local = DateTime.add(current_datetime_utc, timezoneshift, :second)
 
-    target_datetime_local = DateTime.add(current_datetime_local, date * 86400, :second)
-    target_date = DateTime.to_date(target_datetime_local)
+    timezoneshift = weather_map["city"]["timezone"]
 
-    {:ok, start_time} = Time.new(start_time, 0, 0)
-    {:ok, end_time} = Time.new(end_time, 0, 0)
+    target_date =
+      DateTime.add(DateTime.utc_now(), timezoneshift, :second)
+      |> DateTime.add(day * 86_400, :second)
+      |> DateTime.to_date()
 
-    {:ok, start_datetime} = DateTime.new(target_date, start_time)
-    {:ok, end_datetime} = DateTime.new(target_date, end_time)
+    first_unix = DateTime.new!(target_date, Time.new!(start_time, 0, 0)) |> DateTime.to_unix()
+    last_unix = DateTime.new!(target_date, Time.new!(end_time, 0, 0)) |> DateTime.to_unix()
 
-    start_unix = DateTime.to_unix(start_datetime)
-    end_unix = DateTime.to_unix(end_datetime)
-
-    {:ok, weather_list} = Map.fetch(weather_map, "list")
-
-    Enum.reduce_while(weather_list, [], fn map, acc ->
+    Enum.reduce_while(weather_map["list"], [], fn map, acc ->
       case map["dt"] do
-        time when time < start_unix -> {:cont, acc}
-        time when time >= end_unix -> {:halt, acc}
+        time when time < first_unix -> {:cont, acc}
+        time when time >= last_unix -> {:halt, acc}
         _time -> {:cont, [map | acc]}
       end
     end)
