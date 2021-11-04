@@ -3,33 +3,6 @@ defmodule SweaterWeather do
   Provides a get_advice function to recommend attire choices based on today's weather forecast.
   """
   @doc """
-  Takes a decoded json response from OpenWeatherMap.org, returns data trimmed to specified time range.
-
-  Parameters:
-    day: 0 = today, 1 = tomorrow .. 4 = four days from now
-    start_time, end_time: The endpoints of a range in local, military time hours. start_time is inclusive, end_time is exclusive.
-  Issues:
-    This will not account for times outside of the data on a given date, ie. if the date provided is today and the start_time has already passed,
-    the resulting issues are considered out of scope for this prototype and aren't handled.
-  """
-
-  def reduce_timespan(weather_list, first_unix, last_unix) do
-    Enum.reduce_while(weather_list, [], fn map, acc ->
-      case map["dt"] do
-        time when time < first_unix -> {:cont, acc}
-        time when time >= last_unix -> {:halt, acc}
-        _time -> {:cont, [map | acc]}
-      end
-    end)
-  end
-
-  def future_to_unix_time(local_time, day, hour) do
-    {:ok, date} = DateTime.from_unix(local_time + day * 86_400)
-    {:ok, datetime} = DateTime.new(DateTime.to_date(date), Time.new!(hour, 0, 0))
-    DateTime.to_unix(datetime)
-  end
-
-  @doc """
   ## Parameters
   - city: full name of user's city
   - state: ISO 3166-2 State Code
@@ -60,17 +33,18 @@ defmodule SweaterWeather do
     {recommendation_list, high, low, first_unix, last_unix}
   end
 
-  def eval_weather(weather_list, first_unix, last_unix) do
-    shortened_list = reduce_timespan(weather_list, first_unix, last_unix)
-    parse_weather(shortened_list)
-  end
+  def advise(config, high, low, conditions) do
+    available_recommendations = config["available_recommendations"]
+    wet = Enum.any?(conditions, fn condition -> condition in ["rain", "snow"] end)
 
-  def prepare_times(timezone, day, first_hour, last_hour) do
-    # +/-seconds from UTC:
-    local_time = :os.system_time(:second) + timezone
-    first_unix = future_to_unix_time(local_time, day, first_hour)
-    last_unix = future_to_unix_time(local_time, day, last_hour)
-    {first_unix, last_unix}
+    Enum.reduce(available_recommendations, [], fn recommendation, acc ->
+      if recommendation["waterproof"] != wet && recommendation["max_temp"] > low &&
+           recommendation["min_temp"] < high do
+        [recommendation["name"] | acc]
+      else
+        acc
+      end
+    end)
   end
 
   def get_weather(city, state_code, api_key) do
@@ -93,13 +67,39 @@ defmodule SweaterWeather do
     end
   end
 
+  def eval_weather(weather_list, first_unix, last_unix) do
+    shortened_list = reduce_timespan(weather_list, first_unix, last_unix)
+    parse_weather(shortened_list)
+  end
+
+  @doc """
+  Takes a decoded json response from OpenWeatherMap.org, returns data trimmed to specified time range.
+
+  Parameters:
+    day: 0 = today, 1 = tomorrow .. 4 = four days from now
+    start_time, end_time: The endpoints of a range in local, military time hours. start_time is inclusive, end_time is exclusive.
+  Issues:
+    This will not account for times outside of the data on a given date, ie. if the date provided is today and the start_time has already passed,
+    the resulting issues are considered out of scope for this prototype and aren't handled.
+  """
+
+  defp reduce_timespan(weather_list, first_unix, last_unix) do
+    Enum.reduce_while(weather_list, [], fn map, acc ->
+      case map["dt"] do
+        time when time < first_unix -> {:cont, acc}
+        time when time >= last_unix -> {:halt, acc}
+        _time -> {:cont, [map | acc]}
+      end
+    end)
+  end
+
   @doc """
   Takes decoded JSON weather data and returns high, low, and weather conditions.
   Examples:
     iex> output = File.read!('sample_data/sample_weather_query.json') |> JSON.decode!() |> SweaterWeather.reduce_timespan() |> SweaterWeather.parse_weather()
     {42.58, 35.67, ["Clear", "Clear", "Clear"]}
   """
-  def parse_weather(weather_list) do
+  defp parse_weather(weather_list) do
     # Note: temp_max = temp_min = temp for the 5 day forecast queries being used. Revise to consider all three if query type changes.
     temps =
       Enum.reduce(weather_list, [], fn forecast, acc -> [forecast["main"]["temp"] | acc] end)
@@ -117,18 +117,18 @@ defmodule SweaterWeather do
     {high, low, conditions}
   end
 
-  def advise(config, high, low, conditions) do
-    available_recommendations = config["available_recommendations"]
-    wet = Enum.any?(conditions, fn condition -> condition in ["rain", "snow"] end)
+  defp prepare_times(timezone, day, first_hour, last_hour) do
+    # +/-seconds from UTC:
+    local_time = :os.system_time(:second) + timezone
+    first_unix = future_to_unix_time(local_time, day, first_hour)
+    last_unix = future_to_unix_time(local_time, day, last_hour)
+    {first_unix, last_unix}
+  end
 
-    Enum.reduce(available_recommendations, [], fn recommendation, acc ->
-      if recommendation["waterproof"] != wet && recommendation["max_temp"] > low &&
-           recommendation["min_temp"] < high do
-        [recommendation["name"] | acc]
-      else
-        acc
-      end
-    end)
+  defp future_to_unix_time(local_time, day, hour) do
+    {:ok, date} = DateTime.from_unix(local_time + day * 86_400)
+    {:ok, datetime} = DateTime.new(DateTime.to_date(date), Time.new!(hour, 0, 0))
+    DateTime.to_unix(datetime)
   end
 end
 
