@@ -15,8 +15,7 @@ defmodule SweaterWeather do
 
   def restrict_weather_range(weather_map, day \\ 1, start_time \\ 9, end_time \\ 17) do
     # TODO: The amount of code here is not proportional to the work done. Refactor
-
-    timezoneshift = weather_map["city"]["timezone"]
+    timezoneshift = Kernel.get_in(weather_map, ["city", "timezone"])
 
     target_date =
       DateTime.add(DateTime.utc_now(), timezoneshift, :second)
@@ -36,14 +35,14 @@ defmodule SweaterWeather do
   end
 
   @doc """
-    ## Parameters
-      - city: full name of user's city
-      - state: ISO 3166-2 State Code
-      - api-key: API key for OpenWeatherMap.org
+  ## Parameters
+  - city: full name of user's city
+  - state: ISO 3166-2 State Code
+  - api-key: API key for OpenWeatherMap.org
 
-    ## Examples
-      iex> SweaterWeather.get_advice("columbus", "OH,US", :test)
-      TODO
+  ## Examples
+  iex> SweaterWeather.get_advice("columbus", "OH", :test)
+
   """
   def get_advice(city, state_code, api_key) do
     # Todo: Handle errors
@@ -52,7 +51,7 @@ defmodule SweaterWeather do
 
     {:ok, five_day_forecast} = get_weather(city, state_code, api_key)
     weather = restrict_weather_range(five_day_forecast, 1, 9, 17)
-    {:ok, high, low, conditions} = parse_weather(weather)
+    {high, low, conditions} = parse_weather(weather)
     advise(config_map, high, low, conditions)
   end
 
@@ -82,8 +81,8 @@ defmodule SweaterWeather do
 
   Examples:
 
-  iex> output = File.read!('sample_data/sample_weather_query.json') |> JSON.decode() |> restrict_weather_range() |> parse_weather()
-  {:ok, 10, 20, ["clouds"]]}
+  iex> output = File.read!('sample_data/sample_weather_query.json') |> JSON.decode!() |> SweaterWeather.restrict_weather_range() |> SweaterWeather.parse_weather()
+  {42.58, 35.67, ["Clear", "Clear", "Clear"]}
   """
   def parse_weather(weather_list) do
     # Note: temp_max = temp_min = temp for the 5 day forecast queries being used. Revise to consider all three if query type changes.
@@ -100,7 +99,7 @@ defmodule SweaterWeather do
         [List.first(forecast["weather"], 0)["main"] | acc]
       end)
 
-    {:ok, high, low, conditions}
+    {high, low, conditions}
   end
 
   def advise(config, high, low, conditions) do
