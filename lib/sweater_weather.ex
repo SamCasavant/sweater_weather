@@ -6,32 +6,27 @@ defmodule SweaterWeather do
   Takes a decoded json response from OpenWeatherMap.org, returns data trimmed to specified time range.
 
   Parameters:
-    date: 0 = today, 1 = tomorrow .. 4 = four days from now
+    day: 0 = today, 1 = tomorrow .. 4 = four days from now
     start_time, end_time: The endpoints of a range in local, military time hours. start_time is inclusive, end_time is exclusive.
   Issues:
     This will not account for times outside of the data on a given date, ie. if the date provided is today and the start_time has already passed,
     the resulting issues are considered out of scope for this prototype and aren't handled.
   """
 
-  def restrict_weather_range(weather_map, day \\ 1, start_time \\ 9, end_time \\ 17) do
-    # TODO: The amount of code here is not proportional to the work done. Refactor
-    timezoneshift = Kernel.get_in(weather_map, ["city", "timezone"])
-
-    target_date =
-      DateTime.add(DateTime.utc_now(), timezoneshift, :second)
-      |> DateTime.add(day * 86_400, :second)
-      |> DateTime.to_date()
-
-    first_unix = DateTime.new!(target_date, Time.new!(start_time, 0, 0)) |> DateTime.to_unix()
-    last_unix = DateTime.new!(target_date, Time.new!(end_time, 0, 0)) |> DateTime.to_unix()
-
-    Enum.reduce_while(weather_map["list"], [], fn map, acc ->
+  def reduce_timespan(weather_list, first_unix, last_unix) do
+    Enum.reduce_while(weather_list, [], fn map, acc ->
       case map["dt"] do
         time when time < first_unix -> {:cont, acc}
         time when time >= last_unix -> {:halt, acc}
         _time -> {:cont, [map | acc]}
       end
     end)
+  end
+
+  def future_to_unix_time(local_time, day, hour) do
+    {:ok, date} = DateTime.from_unix(local_time + day * 86_400)
+    {:ok, datetime} = DateTime.new(DateTime.to_date(date), Time.new!(hour, 0, 0))
+    DateTime.to_unix(datetime)
   end
 
   @doc """
@@ -44,15 +39,22 @@ defmodule SweaterWeather do
   iex> SweaterWeather.get_advice("columbus", "OH", :test)
 
   """
-  def get_advice(city, state_code, api_key) do
+  def get_advice(city, state_code, api_key, day \\ 1, first_hour \\ 9, last_hour \\ 17) do
     # Todo: Handle errors
     {:ok, config} = File.read("config.json")
     {:ok, config_map} = JSON.decode(config)
 
-    {:ok, five_day_forecast} = get_weather(city, state_code, api_key)
-    weather = restrict_weather_range(five_day_forecast, 1, 9, 17)
+    {:ok, full_weather} = get_weather(city, state_code, api_key)
+    # +/-seconds from UTC:
+    local_time = :os.system_time(:second) + Kernel.get_in(full_weather, ["city", "timezone"])
+    first_unix = future_to_unix_time(local_time, day, first_hour)
+    last_unix = future_to_unix_time(local_time, day, last_hour)
+    # forecast data:
+    full_weather_list = full_weather["list"]
+    weather = reduce_timespan(full_weather_list, first_unix, last_unix)
     {high, low, conditions} = parse_weather(weather)
-    advise(config_map, high, low, conditions)
+    recommendation_list = advise(config_map, high, low, conditions)
+    {recommendation_list, high, low, first_unix, last_unix}
   end
 
   def get_weather(city, state_code, api_key) do
