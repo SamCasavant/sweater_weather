@@ -25,7 +25,7 @@ defmodule SweaterWeather do
 
     {:ok, full_weather} = get_weather(city, state_code, api_key)
 
-    timezone = Kernel.get_in(full_weather, ["city", "timezone"])
+    timezone = get_in(full_weather, ["city", "timezone"])
     {first_unix, last_unix} = prepare_times(timezone, day, first_hour, last_hour)
 
     {high, low, conditions} = eval_weather(full_weather["list"], first_unix, last_unix)
@@ -38,17 +38,22 @@ defmodule SweaterWeather do
   end
 
   def advise(config, high, low, conditions) do
+    require IEx
+
     available_recommendations = config["available_recommendations"]
     wet = Enum.any?(conditions, fn condition -> condition in ["rain", "snow"] end)
 
     Enum.reduce(available_recommendations, [], fn recommendation, acc ->
-      if recommendation["waterproof"] != wet && recommendation["max_temp"] > low &&
+      if (!wet || recommendation["waterproof"]) &&
+           recommendation["max_temp"] > low &&
            recommendation["min_temp"] < high do
         [recommendation["name"] | acc]
       else
         acc
       end
     end)
+
+    IEx.pry()
   end
 
   @doc """
@@ -116,7 +121,6 @@ defmodule SweaterWeather do
     low = Enum.min(temps)
     # TODO: forecast["weather"] is a list. This is probably for a good reason, but I haven't
     # encountered an instance with multiple elements, so I'm just taking the first element for now.
-    # Next step in addressing this is catching when we have multiple "weather" elements.
     conditions =
       Enum.reduce(weather_list, [], fn forecast, acc ->
         [List.first(forecast["weather"], 0)["main"] | acc]
@@ -133,6 +137,9 @@ defmodule SweaterWeather do
     {first_unix, last_unix}
   end
 
+  @doc """
+  Produces the number of seconds since the epoch for a date [day] days in the future at [hour] o'clock.
+  """
   defp future_to_unix_time(local_time, day, hour) do
     {:ok, date} = DateTime.from_unix(local_time + day * 86_400)
     {:ok, datetime} = DateTime.new(DateTime.to_date(date), Time.new!(hour, 0, 0))
@@ -141,8 +148,10 @@ defmodule SweaterWeather do
 end
 
 defmodule CLI do
+  @moduledoc """
+  Module to interface between command-line and SweaterWeather. Should be built as an escript with mix escript.build."""
   @doc """
-  escript executable function for interfacing with this module.
+  escript executable
 
   ## Arguments
     Arguments can be passed in with flags or during program execution.
