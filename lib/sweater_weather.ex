@@ -40,9 +40,13 @@ defmodule SweaterWeather do
 
   """
   def get_advice(city, state_code, api_key, day \\ 1, first_hour \\ 9, last_hour \\ 17) do
-    # Todo: Handle errors
-    {:ok, config} = File.read("config.json")
-    {:ok, config_map} = JSON.decode(config)
+    {:ok, config_map} =
+      try do
+        {:ok, config} = File.read("config.json")
+        JSON.decode(config)
+      rescue
+        e in RuntimeError -> raise("Invalid or missing config.json. Error: #{e}")
+      end
 
     {:ok, full_weather} = get_weather(city, state_code, api_key)
     # +/-seconds from UTC:
@@ -79,12 +83,9 @@ defmodule SweaterWeather do
 
   @doc """
   Takes decoded JSON weather data and returns high, low, and weather conditions.
-
-
   Examples:
-
-  iex> output = File.read!('sample_data/sample_weather_query.json') |> JSON.decode!() |> SweaterWeather.restrict_weather_range() |> SweaterWeather.parse_weather()
-  {42.58, 35.67, ["Clear", "Clear", "Clear"]}
+    iex> output = File.read!('sample_data/sample_weather_query.json') |> JSON.decode!() |> SweaterWeather.reduce_timespan() |> SweaterWeather.parse_weather()
+    {42.58, 35.67, ["Clear", "Clear", "Clear"]}
   """
   def parse_weather(weather_list) do
     # Note: temp_max = temp_min = temp for the 5 day forecast queries being used. Revise to consider all three if query type changes.
@@ -108,20 +109,14 @@ defmodule SweaterWeather do
     available_recommendations = config["available_recommendations"]
     wet = Enum.any?(conditions, fn condition -> condition in ["rain", "snow"] end)
 
-    recommendations =
-      Enum.reduce(available_recommendations, [], fn recommendation, acc ->
-        if recommendation["waterproof"] != wet && recommendation["max_temp"] > low &&
-             recommendation["min_temp"] < high do
-          [recommendation["name"] | acc]
-        else
-          acc
-        end
-      end)
-
-    IO.inspect(high)
-    IO.inspect(low)
-    IO.inspect(conditions)
-    IO.inspect(recommendations)
+    Enum.reduce(available_recommendations, [], fn recommendation, acc ->
+      if recommendation["waterproof"] != wet && recommendation["max_temp"] > low &&
+           recommendation["min_temp"] < high do
+        [recommendation["name"] | acc]
+      else
+        acc
+      end
+    end)
   end
 end
 
@@ -150,7 +145,19 @@ defmodule CLI do
     options = parse_args(args)
 
     with true <- options[:help] do
-      IO.puts("Help text")
+      IO.puts(
+        "sweater_weather is a command line tool that provides the user with attire advice based on weather conditions."
+      )
+
+      IO.puts(
+        "If run with no arguments, or with some missing arguments, sweater_weather will prompt the user during execution."
+      )
+
+      IO.puts("Args:")
+      IO.puts("\t --city/-c={city}: City to forecast")
+      IO.puts("\t --state/-s={state}: City's state")
+      IO.puts("\t --api-key/-k={api-key}: API key for OpenWeatherMap.org")
+      IO.puts("\t --help/-h: Display this help message and exit.")
       Process.exit(self(), :normal)
     end
 
@@ -183,7 +190,8 @@ defmodule CLI do
   defp parse_args(args) do
     {options, _, _} =
       OptionParser.parse(args,
-        switches: [city: :string, state: :string, "api-key": :string]
+        switches: [city: :string, state: :string, "api-key": :string, help: :boolean],
+        aliases: [c: :city, s: :state, k: :"api-key", h: :help]
       )
 
     options
