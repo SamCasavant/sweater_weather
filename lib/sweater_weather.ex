@@ -38,8 +38,6 @@ defmodule SweaterWeather do
   end
 
   def advise(config, high, low, conditions) do
-    require IEx
-
     available_recommendations = config["available_recommendations"]
     wet = Enum.any?(conditions, fn condition -> condition in ["rain", "snow"] end)
 
@@ -52,8 +50,6 @@ defmodule SweaterWeather do
         acc
       end
     end)
-
-    IEx.pry()
   end
 
   @doc """
@@ -204,8 +200,11 @@ defmodule CLI do
     {recommendations, high, low, first_unix, last_unix, cityname} =
       SweaterWeather.get_advice(options[:city], state_code, options[:api_key])
 
+    {:ok, first_datetime} = DateTime.from_unix(first_unix)
+    {:ok, last_datetime} = DateTime.from_unix(last_unix)
+
     IO.puts(
-      "Tomorrow in #{cityname}, expect a high of #{high} and a low of #{low} between 9AM and 5PM."
+      "Tomorrow in #{cityname}, expect a high of #{high} and a low of #{low} between #{first_datetime} and #{last_datetime}."
     )
 
     Enum.each(recommendations, fn rec ->
