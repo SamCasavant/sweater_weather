@@ -2,27 +2,52 @@
 
 This is my submission for the code challenge. Look upon my works, ye mighty, and let me know what you think.
 
-## Experience
-
-I worked in elixir for the first time a couple weeks before starting this project. I had about 10 hours of experience going into this, and I had never worked with a functional language before. I suspect there are some anti-patterns and non-idiomatic code. In particular, I hit a mental block working with recursion and having multiple function definitions for different inputs. I am also concerned that my code is littered with :oks and calls to Enum, but I don't have enough experience to determine if that is normal.
-
-I had some issues writing tests for functions that require an API key. I was able to request the api key from the user in my test script, but had no luck doing so with doctests. I rewrote the relevant functions with a :test option for API key and added some sample query data. I didn't write tests for the escript binary, and I didn't research whether that was a possibility.
-
-The prompt doesn't mention a time range, so I am assuming tomorrow's 9-5 weather is the pertinent measurement. I am loosely implementing time and date options because I expect that they would be needed to make the program useful, but there are no tests or CLI implementations and the resolution is in hours.
-
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `sweater_weather` to your list of dependencies in `mix.exs`:
+```
+git clone github.com/SamCasavant/sweater_weather
+cd sweater_weather
+mix escript.build
 
-```elixir
-def deps do
-  [
-    {:sweater_weather, "~> 0.1.0"}
-  ]
-end
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/sweater_weather](https://hexdocs.pm/sweater_weather).
+## Usage
+
+```
+./sweater_weather
+```
+
+or
+
+```
+./sweater_weather --city={city} --state={state} --api-key={API key}
+```
+
+## Development Notes
+
+Assumptions:
+
+- Weather is for 9-5 on the following day. I did a little groundwork on generalizing this, but it's not fully implemented. Weather outside of this range is considered out-of-scope because the prompt didn't mention getting time from the user (and I can't think of a convenient way to do so), but it's the biggest weakness of this program.
+- I'm querying the 5-day forecast API referenced in the prompt. An hourly forecast would probably be a better source, and would probably work as a drop-in replacement.
+- If there is any overlap between tomorrow's temperature and a suggested range configuration, and if , the item is suggested.
+- There is only one config.json file allowed. In practice, it may be useful to be able to specify a config file at runtime.
+- Weather conditions may have an associated likelihood (ie. 15% chance of rain), and whether a condition is listed is up to OpenWeatherMaps discretion.
+- CLI module can be run with flags or with prompts at runtime.
+
+Flaws:
+
+- If weather conditions list rain or snow, only waterproof elements can be listed, otherwise non-waterproof elements can be listed. Raincoats will be suggested even if it's not going to rain.
+- There is not a lot of validation that the user entered the correct location. This caused issues in development when a bug with state codes had me getting weather for Montgomery County, Maryland instead of Montgomery, Alabama. My hacky solution is to give the city name element from the API response back to the user, but it can't handle all possible mistakes.
+- Recommendations don't handle plurality or correct for capitalization; output may be "SweaterWeather thinks you should bring a Snow Shoes".
+- The escript doesn't have any tests. I haven't taken the time to figure out how to write them, if it is possible.
+- Other test issues exist. A lot is dependent on current time and an API key. Rather than implement a :test version for each function, I left a few functions untested.
+
+I'm still new to elixir, so there are probably structural issues. I preferred using the Enum module for recursive function calls, and always wrote the functions inside of those calls rather than assigning it to a variable. I made functions whenever they reduced the total length of the program, which may be too often or not often enough. I may have over-relied on case statements for program flow and error handling; there is one use of 'with' and two 'try's, but eight cases. This may all be :ok, I haven't read enough elixir to see how things normally work.
+
+I'm not thrilled with how I handled time, it seems like a lot of extra steps switching between DateTimes and unix times. If I had another go, I would probably just make everything into DateTimes so I could forget about them.
+
+I wrote this sporadically over a couple weeks. That came with some advantages but it resulted in some inconsistent variable and function names.
+
+I'm suspicious that naming my CLI module 'CLI' is a mistake because it's excessively generic. I haven't changed it because I prefer it this way if it's not an issue.
+
+I am aware that the repeated calls to IO.puts in the help text could be a single call, but I find it easier to edit as-is.

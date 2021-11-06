@@ -3,24 +3,20 @@ defmodule SweaterWeather do
   Provides a get_advice function to recommend attire choices based on today's weather forecast.
   """
   @doc """
-  get_advice takes
+  get_advice takes a location and API key and returns advice
   ## Parameters
   - city: full name of user's city
   - state: ISO 3166-2 State Code
   - api-key: API key for OpenWeatherMap.org
 
-  ## Examples
-  iex> SweaterWeather.get_advice("columbus", "OH", :test)
-
   """
   def get_advice(city, state_code, api_key, day \\ 1, first_hour \\ 9, last_hour \\ 17) do
-    {:ok, config_map} =
+    config_map =
       try do
-        {:ok, config} = File.read("config.json")
-        JSON.decode(config)
+        JSON.decode!(File.read!("config.json"))
       rescue
         e in RuntimeError ->
-          reraise("Invalid or missing config.json. Error: #{e}", __STACKTRACE__)
+          raise("Invalid or missing config.json. Error: " <> e.message)
       end
 
     {:ok, full_weather} = get_weather(city, state_code, api_key)
@@ -68,31 +64,36 @@ defmodule SweaterWeather do
         JSON.decode(File.read!('sample_data/sample_weather_query.json'))
 
       _ ->
-        {:ok, {{_, 200, 'OK'}, _headers, weather_json}} =
-          :httpc.request(:get, {query_url, []}, [], body_format: :string)
+        case :httpc.request(:get, {query_url, []}, [], body_format: :string) do
+          {:ok, {{_, 200, 'OK'}, _headers, weather_json}} ->
+            JSON.decode(weather_json)
 
-        JSON.decode(weather_json)
+          {:ok, {{_, 401, 'Unauthorized'}, _headers, _message}} ->
+            raise("Invalid API key: #{api_key}.")
+
+          {:ok, {{_, 404, 'Not Found'}, _headers, message}} ->
+            # This should only happen if the city name is invalid
+            raise("#{message["message"]} \n For #{city_url}, #{state_code}.")
+
+          {:error, {:failed_connect, _}} ->
+            raise("Unable to connect to OpenWeatherMap.org.")
+        end
     end
   end
 
   @doc """
   Function to prepare decoded json weather data and parse it for high, low, and weather conditions.
-  iex> output = File.read!('sample_data/sample_weather_query.json') |> JSON.decode!() |> SweaterWeather.eval_weather()
-  {42.58, 35.67, ["Clear", "Clear", "Clear"]}
+  Example:
+    iex> File.read!('sample_data/sample_weather_query.json') |> JSON.decode!() |> Map.get("list") |> SweaterWeather.eval_weather(1635800400, 1635843600)
+    {52.12, 45.66, ["Clouds", "Clouds", "Clouds", "Clouds"]}
   """
   def eval_weather(weather_list, first_unix, last_unix) do
     shortened_list = reduce_timespan(weather_list, first_unix, last_unix)
     parse_weather(shortened_list)
   end
 
-  @doc """
-  Takes a decoded json response from OpenWeatherMap.org, returns data trimmed to specified time range.
-
-
-  Issues:
-    This will not account for times outside of the data on a given date, ie. if the date provided is today and the start_time has already passed,
-    the resulting issues are considered out of scope for this prototype and aren't handled.
-  """
+  # Takes a decoded json response from OpenWeatherMap.org, returns data trimmed to specified time range.
+  # This is not written to account for times outside of the data on a given date, ie. if the date provided is today and the start_time has already passed
 
   defp reduce_timespan(weather_list, first_unix, last_unix) do
     Enum.reduce_while(weather_list, [], fn map, acc ->
@@ -104,38 +105,33 @@ defmodule SweaterWeather do
     end)
   end
 
-  @doc """
-  Takes decoded JSON weather data and returns high, low, and weather conditions.
-
-  """
+  # Takes decoded JSON weather data and returns high, low, and weather conditions.
   defp parse_weather(weather_list) do
-    # Note: temp_max = temp_min = temp for the 5 day forecast queries being used. Revise to consider all three if query type changes.
+    # Note: Apparently temp_max = temp_min = temp for the 5 day forecast queries being used. Revise to consider all three if query type changes.
     temps =
       Enum.reduce(weather_list, [], fn forecast, acc -> [forecast["main"]["temp"] | acc] end)
 
     high = Enum.max(temps)
     low = Enum.min(temps)
-    # TODO: forecast["weather"] is a list. This is probably for a good reason, but I haven't
-    # encountered an instance with multiple elements, so I'm just taking the first element for now.
+
     conditions =
       Enum.reduce(weather_list, [], fn forecast, acc ->
+        # List.first here is hacky, I never encountered more than one element, but it's a list for some reason, right?
         [List.first(forecast["weather"], 0)["main"] | acc]
       end)
 
     {high, low, conditions}
   end
 
+  # Takes all time parameters and returns unix times relative to today. timezone is provided as seconds away from UTC.
   defp prepare_times(timezone, day, first_hour, last_hour) do
-    # +/-seconds from UTC:
     local_time = :os.system_time(:second) + timezone
     first_unix = future_to_unix_time(local_time, day, first_hour)
     last_unix = future_to_unix_time(local_time, day, last_hour)
     {first_unix, last_unix}
   end
 
-  @doc """
-  Produces the number of seconds since the epoch for a date [day] days in the future at [hour] o'clock.
-  """
+  # Produces the number of seconds since the epoch for a date [day] days in the future at [hour] o'clock.
   defp future_to_unix_time(local_time, day, hour) do
     {:ok, date} = DateTime.from_unix(local_time + day * 86_400)
     {:ok, datetime} = DateTime.new(DateTime.to_date(date), Time.new!(hour, 0, 0))
@@ -195,7 +191,11 @@ defmodule CLI do
         end
       end
 
-    {:ok, state_code} = get_state_code(options[:state])
+    state_code =
+      case get_state_code(options[:state]) do
+        {:ok, state_code} -> state_code
+        {:error, message} -> raise(message)
+      end
 
     {recommendations, high, low, first_unix, last_unix, cityname} =
       SweaterWeather.get_advice(options[:city], state_code, options[:api_key])
@@ -208,7 +208,7 @@ defmodule CLI do
     )
 
     Enum.each(recommendations, fn rec ->
-      IO.puts("sweater_weather thinks you should bring a #{rec}")
+      IO.puts("SweaterWeather thinks you should bring a #{rec}")
     end)
   end
 
@@ -217,7 +217,8 @@ defmodule CLI do
 
     case IO.read(:stdio, :line) do
       {:error, reason} ->
-        raise("Error: #{reason}")
+        IO.puts("Error: #{reason}")
+        request_arg(arg)
 
       data ->
         {arg, String.trim(data, "\n")}
@@ -242,9 +243,6 @@ defmodule CLI do
 
     iex> CLI.get_state_code("oh")
     {:ok, "OH,US"}
-
-    iex> CLI.get_state_code("us-nv")
-    {:ok, "NV,US"}
   """
   def get_state_code(state) do
     # Handle us-xy / usxy format and capitalize
@@ -253,8 +251,13 @@ defmodule CLI do
       |> String.split(["US-", "US"])
       |> Enum.at(-1)
 
-    {:ok, state_codes} = File.read("data/state_code_map.json")
-    {:ok, state_code_map} = JSON.decode(state_codes)
+    state_code_map =
+      try do
+        JSON.decode!(File.read!("data/state_code_map.json"))
+      rescue
+        e in RuntimeError ->
+          IO.puts("Missing or invalid file at data/state_code_map.json. Error: " <> e.message)
+      end
 
     state_map_match =
       case String.length(state) do
