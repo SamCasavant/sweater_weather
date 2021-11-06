@@ -9,7 +9,6 @@ git clone https://github.com/SamCasavant/sweater_weather.git
 cd sweater_weather
 mix deps.get
 mix escript.build
-
 ```
 
 ## Usage
