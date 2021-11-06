@@ -13,10 +13,10 @@ defmodule SweaterWeather do
   def get_advice(city, state_code, api_key, day \\ 1, first_hour \\ 9, last_hour \\ 17) do
     config_map =
       try do
-        JSON.decode!(File.read!("config.json"))
+        JSON.decode!(File.read!("data/config.json"))
       rescue
         e in RuntimeError ->
-          reraise("Invalid or missing config.json. Error: " <> e.message, __STACKTRACE__)
+          reraise("Invalid or missing data/config.json. Error: " <> e.message, __STACKTRACE__)
       end
 
     {:ok, full_weather} = get_weather(city, state_code, api_key)
@@ -61,7 +61,7 @@ defmodule SweaterWeather do
     case api_key do
       :test ->
         IO.puts(query_url)
-        JSON.decode(File.read!('sample_data/sample_weather_query.json'))
+        JSON.decode(File.read!('data/sample_weather_query.json'))
 
       _ ->
         case :httpc.request(:get, {query_url, []}, [], body_format: :string) do
@@ -84,7 +84,7 @@ defmodule SweaterWeather do
   @doc """
   Function to prepare decoded json weather data and parse it for high, low, and weather conditions.
   Example:
-    iex> File.read!('sample_data/sample_weather_query.json') |> JSON.decode!() |> Map.get("list") |> SweaterWeather.eval_weather(1_635_800_400, 1_635_843_600)
+    iex> File.read!('data/sample_weather_query.json') |> JSON.decode!() |> Map.get("list") |> SweaterWeather.eval_weather(1_635_800_400, 1_635_843_600)
     {52.12, 42.98, ["Clouds", "Clouds", "Clouds", "Clouds", "Clouds"]}
   """
   def eval_weather(weather_list, first_unix, last_unix) do

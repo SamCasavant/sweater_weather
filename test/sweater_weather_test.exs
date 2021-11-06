@@ -18,7 +18,7 @@ defmodule SweaterWeatherTest do
 
   test "parses weather" do
     weather_data =
-      File.read!('sample_data/sample_weather_query.json')
+      File.read!('data/sample_weather_query.json')
       |> JSON.decode!()
       |> Map.get("list")
 
@@ -32,7 +32,7 @@ defmodule SweaterWeatherTest do
   end
 
   test "advises appropriate attire" do
-    config = JSON.decode!(File.read!("config.json"))
+    config = JSON.decode!(File.read!("data/config.json"))
     # On a hot day:
     assert ["Comfortable Shoes", "Rain Jacket", "Sunglasses"] =
              SweaterWeather.advise(config, 120, 70, ["Clouds"])

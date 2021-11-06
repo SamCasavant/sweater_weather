@@ -4,7 +4,7 @@ defmodule SweaterWeather.MixProject do
   def project do
     [
       app: :sweater_weather,
-      version: "0.1.0",
+      version: "0.9.0",
       elixir: "~> 1.12",
       start_permanent: Mix.env() == :prod,
       escript: [main_module: CLI],
@@ -22,10 +22,7 @@ defmodule SweaterWeather.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:json, "~> 1.4"},
-      {:credo, "~>1.5", only: [:dev, :test], runtime: false}
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
+      {:json, "~> 1.4"}
     ]
   end
 end

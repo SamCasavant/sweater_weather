@@ -5,8 +5,9 @@ This is my submission for the code challenge. Look upon my works, ye mighty, and
 ## Installation
 
 ```
-git clone github.com/SamCasavant/sweater_weather
+git clone https://github.com/SamCasavant/sweater_weather.git
 cd sweater_weather
+mix deps.get
 mix escript.build
 
 ```
