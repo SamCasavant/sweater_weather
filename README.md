@@ -47,6 +47,8 @@ Known Issues:
 
 I'm still new to elixir, so there are probably structural issues. I preferred using the Enum module for recursive function calls, and always wrote the functions inside of those calls rather than assigning it to a variable. I made functions whenever they reduced the total length of the program, which may be too often or not often enough. I may have over-relied on case statements for program flow and error handling; there is one use of 'with' and two 'try's, but eight cases. This may all be :ok, I haven't read enough elixir to see how things normally work.
 
+I never used @spec, which I believe is for typing. I've really grown to like typed variables while working in Rust, but I don't know how common they are in Elixir. In the interest of saving time, I elected to skip it.
+
 I'm not thrilled with how I handled time, it seems like a lot of extra steps switching between DateTimes and unix times. If I had another go, I would probably just make everything into DateTimes so I could forget about them.
 
 I wrote this sporadically over a couple weeks. That came with some advantages but it resulted in some inconsistent variable and function names.

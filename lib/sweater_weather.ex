@@ -16,7 +16,7 @@ defmodule SweaterWeather do
         JSON.decode!(File.read!("config.json"))
       rescue
         e in RuntimeError ->
-          raise("Invalid or missing config.json. Error: " <> e.message)
+          reraise("Invalid or missing config.json. Error: " <> e.message, __STACKTRACE__)
       end
 
     {:ok, full_weather} = get_weather(city, state_code, api_key)
