@@ -34,13 +34,14 @@ Assumptions:
 - Weather conditions may have an associated likelihood (ie. 15% chance of rain), and whether a condition is listed is up to OpenWeatherMaps discretion.
 - CLI module can be run with flags or with prompts at runtime.
 
-Flaws:
+Known Issues:
 
 - If weather conditions list rain or snow, only waterproof elements can be listed, otherwise non-waterproof elements can be listed. Raincoats will be suggested even if it's not going to rain. This is necessary because the config doesn't specify whether an article is preferred in a particular type of weather.
 - There is not a lot of validation that the user entered the correct location. This caused issues in development when a bug with state codes had me getting weather for Montgomery County, Maryland instead of Montgomery, Alabama. My hacky solution is to give the city name element from the API response back to the user, but it can't handle all possible mistakes.
 - Recommendations don't handle plurality or correct for capitalization; output may be "SweaterWeather thinks you should bring a Snow Shoes".
 - I haven't checked whether Rain and Snow are the only possible types of precipitation that can be returned from the API.
 - There is no check on whether the same type of clothing is being advised in two forms, both "Light Coat" and "Heavy Coat" can be recommended at once.
+- Escript prints out times as though they were UTC even though they are localized to the city's time zone.
 - The escript doesn't have any tests. I haven't taken the time to figure out how to write them, if it is possible.
 - Other test issues exist. A lot is dependent on current time and an API key. Rather than implement a :test version for each function, I left a few functions untested.
 
