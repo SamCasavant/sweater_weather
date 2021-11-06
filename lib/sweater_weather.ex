@@ -35,7 +35,7 @@ defmodule SweaterWeather do
 
   def advise(config, high, low, conditions) do
     available_recommendations = config["available_recommendations"]
-    wet = Enum.any?(conditions, fn condition -> condition in ["rain", "snow"] end)
+    wet = Enum.any?(conditions, fn condition -> condition in ["Rain", "Snow"] end)
 
     Enum.reduce(available_recommendations, [], fn recommendation, acc ->
       if (!wet || recommendation["waterproof"]) &&
@@ -84,8 +84,8 @@ defmodule SweaterWeather do
   @doc """
   Function to prepare decoded json weather data and parse it for high, low, and weather conditions.
   Example:
-    iex> File.read!('sample_data/sample_weather_query.json') |> JSON.decode!() |> Map.get("list") |> SweaterWeather.eval_weather(1635800400, 1635843600)
-    {52.12, 45.66, ["Clouds", "Clouds", "Clouds", "Clouds"]}
+    iex> File.read!('sample_data/sample_weather_query.json') |> JSON.decode!() |> Map.get("list") |> SweaterWeather.eval_weather(1_635_800_400, 1_635_843_600)
+    {52.12, 42.98, ["Clouds", "Clouds", "Clouds", "Clouds", "Clouds"]}
   """
   def eval_weather(weather_list, first_unix, last_unix) do
     shortened_list = reduce_timespan(weather_list, first_unix, last_unix)
@@ -99,7 +99,7 @@ defmodule SweaterWeather do
     Enum.reduce_while(weather_list, [], fn map, acc ->
       case map["dt"] do
         time when time < first_unix -> {:cont, acc}
-        time when time >= last_unix -> {:halt, acc}
+        time when time > last_unix -> {:halt, acc}
         _time -> {:cont, [map | acc]}
       end
     end)
