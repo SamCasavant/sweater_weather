@@ -29,7 +29,7 @@ Assumptions:
 
 - Weather is for 9-5 on the following day. I did a little groundwork on generalizing this, but it's not fully implemented. Weather outside of this range is considered out-of-scope because the prompt didn't mention getting time from the user (and I can't think of a convenient way to do so), but it's the biggest weakness of this program.
 - I'm querying the 5-day forecast API referenced in the prompt. An hourly forecast would probably be a better source, and would probably work as a drop-in replacement.
-- If there is any overlap between tomorrow's temperature and a suggested range configuration, and if , the item is suggested.
+- If there is any overlap between tomorrow's temperature and a suggested range configuration, and if the item is sufficiently waterproof, the item is suggested.
 - There is only one config.json file allowed. In practice, it may be useful to be able to specify a config file at runtime.
 - Weather conditions may have an associated likelihood (ie. 15% chance of rain), and whether a condition is listed is up to OpenWeatherMaps discretion.
 - CLI module can be run with flags or with prompts at runtime.
